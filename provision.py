@@ -34,6 +34,7 @@ from pathlib import Path
 import cloudflare as cf_module
 from dotenv import load_dotenv
 from fabric import Connection
+from hcloud import APIException
 from hcloud import Client as HCloudClient
 from hcloud.firewalls.domain import FirewallResource, FirewallRule
 from hcloud.images.domain import Image
@@ -48,7 +49,8 @@ import paramiko
 
 SERVER_TYPE      = "cx23"                        # 2 vCPU / 4 GB RAM (Intel)
 IMAGE_NAME       = "ubuntu-24.04"
-LOCATION_NAME    = "hel1"                        # Helsinki, Finland
+LOCATION_NAME    = "hel1"                        # Helsinki, Finland (preferred)
+FALLBACK_LOCATIONS = ["nbg1", "fsn1"]            # Nuremberg, Falkenstein — tried on resource_unavailable
 DOMAIN_SUFFIX    = "container.it-scholar.com"
 HETZNER_KEY_NAME = "container-seminar-provisioner"
 FW_NAME          = "container-seminar-fw"
@@ -263,6 +265,24 @@ def ensure_firewall() -> object:
     return result.firewall
 
 
+def _create_in_location(name: str, ssh_key: object, server_type: str, location: str) -> bool:
+    """Attempt server creation in one location; return True on success, False on resource_unavailable."""
+    try:
+        hc.servers.create(
+            name=name,
+            server_type=ServerType(name=server_type),
+            image=Image(name=IMAGE_NAME),
+            location=Location(name=location),
+            ssh_keys=[ssh_key],
+            public_net=ServerCreatePublicNetwork(enable_ipv4=True, enable_ipv6=True),
+        )
+        return True
+    except APIException as e:
+        if e.code == "resource_unavailable":
+            return False
+        raise
+
+
 def create_vm(name: str, ssh_key: object, server_type: str = SERVER_TYPE) -> tuple[str, str]:
     """Create a single VM; return (name, public_ipv4)."""
     existing = hc.servers.get_by_name(name)
@@ -270,15 +290,25 @@ def create_vm(name: str, ssh_key: object, server_type: str = SERVER_TYPE) -> tup
         ip = existing.public_net.ipv4.ip
         log(f"  VM '{name}' already exists (IP: {ip}), skipping.")
         return name, ip
-    log(f"  Creating VM '{name}' ({server_type}, {IMAGE_NAME}, {LOCATION_NAME}) ...")
-    response = hc.servers.create(
-        name=name,
-        server_type=ServerType(name=server_type),
-        image=Image(name=IMAGE_NAME),
-        location=Location(name=LOCATION_NAME),
-        ssh_keys=[ssh_key],
-        public_net=ServerCreatePublicNetwork(enable_ipv4=True, enable_ipv6=True),
-    )
+    # Hetzner placement can transiently run out of capacity for a given
+    # server_type/location combo; retry the preferred location a couple of
+    # times, then fall back to alternate locations before giving up.
+    locations = [LOCATION_NAME] + [l for l in FALLBACK_LOCATIONS if l != LOCATION_NAME]
+    created = False
+    for location in locations:
+        for attempt in range(1, 3):
+            log(f"  Creating VM '{name}' ({server_type}, {IMAGE_NAME}, {location}) ...")
+            if _create_in_location(name, ssh_key, server_type, location):
+                created = True
+                break
+            log(f"  VM '{name}': no capacity in {location} (attempt {attempt}/2)")
+            if attempt < 2:
+                time.sleep(15)
+        if created:
+            break
+        log(f"  VM '{name}': trying next location ...")
+    if not created:
+        raise RuntimeError(f"VM '{name}' could not be placed in any of {locations} (no capacity)")
     # Poll until the server exists and is running (Hetzner action API times out early)
     deadline = time.time() + 600
     server = None
@@ -300,15 +330,12 @@ def provision_hetzner() -> dict[str, str]:
     ssh_key  = ensure_hetzner_ssh_key()
     ensure_firewall()
 
+    # Created one at a time (not parallel) to keep the process easy to
+    # observe/interrupt safely and avoid bursting the Hetzner API.
     vm_ips: dict[str, str] = {}
-    with ThreadPoolExecutor(max_workers=len(STUDENTS)) as pool:
-        futures = {
-            pool.submit(create_vm, s["slug"], ssh_key): s["slug"]
-            for s in STUDENTS
-        }
-        for f in as_completed(futures):
-            name, ip = f.result()
-            vm_ips[name] = ip
+    for s in STUDENTS:
+        name, ip = create_vm(s["slug"], ssh_key)
+        vm_ips[name] = ip
 
     # Apply firewall to all servers
     fw = hc.firewalls.get_by_name(FW_NAME)
