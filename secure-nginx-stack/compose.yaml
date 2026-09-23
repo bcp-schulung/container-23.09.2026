@@ -1,0 +1,83 @@
+name: secure-nginx-stack
+
+x-hardened: &hardened
+  user: "101:101"
+  read_only: true
+  init: true
+  privileged: false
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 64
+  mem_limit: 128m
+  mem_reservation: 32m
+  cpus: 0.50
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=16m,uid=101,gid=101,mode=1770
+  restart: unless-stopped
+  stop_grace_period: 10s
+  logging:
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "3"
+  healthcheck:
+    test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+    interval: 15s
+    timeout: 3s
+    retries: 3
+    start_period: 5s
+
+services:
+  frontend:
+    <<: *hardened
+    image: secure-nginx-stack/frontend:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8080}:8080"
+    networks:
+      - edge
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  backend:
+    <<: *hardened
+    image: secure-nginx-stack/backend:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+    expose:
+      - "8080"
+    networks:
+      - edge
+      - data
+    depends_on:
+      database:
+        condition: service_healthy
+
+  database:
+    <<: *hardened
+    image: secure-nginx-stack/database:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: database
+    expose:
+      - "8080"
+    networks:
+      - data
+
+networks:
+  edge:
+    driver: bridge
+  data:
+    internal: true
+    driver: bridge
+
+
