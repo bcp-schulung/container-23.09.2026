@@ -12,20 +12,9 @@
 # podSubnet is set to 10.0.0.0/8, Cilium's default cluster-pool IPAM CIDR. Only change this
 # if you configure Cilium with a different clusterPoolIPv4PodCIDRList.
 #
-# Placeholder still to fill in before use:
-#   <ADVERTISE_ADDRESS>        - this node's own IP that other nodes can reach it on
+# No InitConfiguration: kubeadm auto-detects the advertise address (default route interface)
+# and the CRI socket (containerd is the only runtime installed), so defaults are fine here.
 
-apiVersion: kubeadm.k8s.io/v1beta4
-kind: InitConfiguration
-localAPIEndpoint:
-  advertiseAddress: "<ADVERTISE_ADDRESS>"
-  bindPort: 6443
-nodeRegistration:
-  criSocket: "unix:///var/run/containerd/containerd.sock"
-  kubeletExtraArgs:
-    - name: "node-ip"
-      value: "<ADVERTISE_ADDRESS>"
----
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
 kubernetesVersion: "v1.37.0"
