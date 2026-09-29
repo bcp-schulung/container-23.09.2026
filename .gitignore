@@ -31,3 +31,4 @@ env/
 **/.DS_Store
 terraform/tfplan
 provision.log
+terraform/main.tf

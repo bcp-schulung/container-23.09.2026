@@ -69,18 +69,18 @@ HARBOR_SECRETS_FILE = Path(__file__).parent / ".harbor-passwords.json"
 # display: shown in the summary / credentials file
 STUDENTS = [
     {"slug": "ben-coeppicus",        "display": "Ben Cöppicus"},
-    {"slug": "lara-amer",            "display": "Lara Amer"},
-    {"slug": "stefan-beyer",         "display": "Stefan Beyer"},
-    {"slug": "christoph-brueshaber", "display": "Christoph Brüshaber"},
-    {"slug": "rene-de-la-motte",     "display": "Rene de la Motte"},
-    {"slug": "christine-froboese",   "display": "Christine Froböse"},
-    {"slug": "bennet-moeller",       "display": "Bennet Möller"},
-    {"slug": "marco-musial",         "display": "Marco Musial"},
-    {"slug": "janna-piontek",        "display": "Janna Piontek"},
-    {"slug": "julia-pressburger",    "display": "Julia Pressburger"},
-    {"slug": "annett-schulz",        "display": "Annett Schulz"},
-    {"slug": "tim-sternberg",        "display": "Tim Sternberg"},
-    {"slug": "aleksej-wilhelm",      "display": "Aleksej Wilhelm"},
+    {"slug": "gerd-michael-tuschy",  "display": "Gerd-Michael Tuschy"},
+    {"slug": "angela-tietz",         "display": "Angela Tietz"},
+    {"slug": "tim-sczepanski",       "display": "Tim Sczepanski"},
+    {"slug": "patrick-schwetje",     "display": "Patrick Schwetje"},
+    {"slug": "martin-schumacher",    "display": "Martin Schumacher"},
+    {"slug": "pierre-rousseau",      "display": "Pierre Rousseau"},
+    {"slug": "florian-riess",        "display": "Florian Riess"},
+    {"slug": "herbert-nill",         "display": "Herbert Nill"},
+    {"slug": "alexander-graefe",     "display": "Alexander Graefe"},
+    {"slug": "thorsten-glodde",      "display": "Thorsten Glodde"},
+    {"slug": "volkan-celik",         "display": "Volkan Celik"},
+    {"slug": "dirk-martens",         "display": "Dirk Martens"},
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
