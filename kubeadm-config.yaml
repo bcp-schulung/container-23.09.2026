@@ -1,0 +1,55 @@
+# kubeadm-config.yaml
+#
+# Cluster bootstrap config for `kubeadm init --config kubeadm-config.yaml --upload-certs`
+# Matches the containerd + kubeadm/kubelet/kubectl v1.37 setup from k8s-setup.sh.
+# Docs: https://kubernetes.io/docs/reference/config-api/kubeadm-config.v1beta4/
+#
+# Control-plane endpoint uses the "cp" alias — add it to /etc/hosts on every node
+# (control-plane and workers) BEFORE running kubeadm init/join, e.g.:
+#   <control-plane-IP>  cp
+# For multi-CP setups, "cp" must resolve to a load balancer/VIP in front of all CP nodes.
+#
+# podSubnet is set to 10.0.0.0/8, Cilium's default cluster-pool IPAM CIDR. Only change this
+# if you configure Cilium with a different clusterPoolIPv4PodCIDRList.
+#
+# Placeholder still to fill in before use:
+#   <ADVERTISE_ADDRESS>        - this node's own IP that other nodes can reach it on
+
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "<ADVERTISE_ADDRESS>"
+  bindPort: 6443
+nodeRegistration:
+  criSocket: "unix:///var/run/containerd/containerd.sock"
+  kubeletExtraArgs:
+    - name: "node-ip"
+      value: "<ADVERTISE_ADDRESS>"
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+kubernetesVersion: "v1.37.0"
+controlPlaneEndpoint: "cp:6443"
+networking:
+  podSubnet: "10.0.0.0/8"
+  serviceSubnet: "10.96.0.0/12"
+apiServer:
+  extraArgs:
+    - name: "authorization-mode"
+      value: "Node,RBAC"
+controllerManager: {}
+scheduler: {}
+etcd:
+  local:
+    dataDir: "/var/lib/etcd"
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: "systemd"
+serverTLSBootstrap: true
+---
+# Only needed if NOT using Cilium's kube-proxy replacement (kubeProxyReplacement: true in
+# its Helm values). If you replace kube-proxy with Cilium, skip installing this addon instead.
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+mode: "iptables"
